@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student-Teacher Feedback System</title>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #6a11cb, #2575fc);
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      width: 65%;
+      margin: 30px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
+    }
+    h1 { color: #1e3a8a; text-align: center; }
+    h2, h3 { color: #444; text-align:center; }
+    input, select, textarea, button {
+      padding: 10px;
+      margin: 10px 0;
+      width: 95%;
+      border-radius: 8px;
+      border: 1px solid #aaa;
+      font-size: 16px;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+
+    /* Star Rating */
+    .rating {
+      display: flex;
+      flex-direction: row-reverse;
+      justify-content: flex-end;
+    }
+    .rating input { display: none; }
+    .rating label {
+      font-size: 28px;
+      color: #ccc;
+      cursor: pointer;
+      padding: 0 5px;
+    }
+    .rating input:checked ~ label,
+    .rating label:hover,
+    .rating label:hover ~ label {
+      color: #facc15;
+    }
+
+    #confirmationPage { text-align: center; display: none; }
+    .checkmark { font-size: 60px; color: #10b981; }
+  </style>
+</head>
+<body>
+  <!-- 🔹 Signup Page -->
+  <div class="container" id="signupPage">
+    <h2>Signup</h2>
+    <input type="email" id="signupEmail" placeholder="Email" required>
+    <input type="password" id="signupPassword" placeholder="Password" required>
+    
+    <select id="signupRole" onchange="toggleTeacherFields()">
+      <option value="student">Student</option>
+      <option value="teacher">Teacher</option>
+    </select>
+
+    <!-- Department dropdown (hidden for students) -->
+    <select id="teacherDeptField" style="display:none;" onchange="loadSignupTeachers()">
+      <option value="">-- Select Department --</option>
+      <option value="CSE">Computer Science Engineering</option>
+      <option value="ECE">Electronics Engineering</option>
+      <option value="ME">Mechanical Engineering</option>
+      <option value="CE">Civil Engineering</option>
+    </select>
+
+    <!-- Teacher dropdown (hidden by default) -->
+    <select id="teacherNameField" style="display:none;">
+      <option value="">-- Select Your Name --</option>
+    </select>
+
+    <button onclick="signup()">Signup</button>
+    <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+  </div>
+
+  <!-- 🔹 Login Page -->
+  <div class="container" id="loginPage" style="display:none;">
+    <h2>Login</h2>
+    <input type="email" id="loginEmail" placeholder="Email" required>
+    <input type="password" id="loginPassword" placeholder="Password" required>
+    <button onclick="login()">Login</button>
+    <p>Don’t have an account? <a href="#" onclick="showSignup()">Signup</a></p>
+  </div>
+
+  <!-- 🔹 Student Feedback Page -->
+  <div class="container" id="feedbackPage" style="display:none;">
+    <h1>Dr. B. C. Roy Engineering College</h1>
+    <h2>Student-Teacher Feedback Management System</h2>
+
+    <!-- Step 1 -->
+    <div id="step1">
+      <h3>Step 1: Select Department</h3>
+      <select id="department" onchange="loadTeachers()">
+        <option value="">-- Select Department --</option>
+        <option value="CSE">Computer Science Engineering</option>
+        <option value="ECE">Electronics Engineering</option>
+        <option value="ME">Mechanical Engineering</option>
+        <option value="CE">Civil Engineering</option>
+      </select>
+      <button onclick="goToStep(2)">Next Step</button>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="step2" style="display:none;">
+      <h3>Step 2: Select Teacher</h3>
+      <select id="teacher">
+        <option value="">-- Select Teacher --</option>
+      </select>
+      <button onclick="goToStep(1)">Back</button>
+      <button onclick="goToStep(3)">Next Step</button>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="step3" style="display:none;">
+      <h3>Step 3: Rate Your Teacher</h3>
+
+      <p>Teaching Quality:</p>
+      <div class="rating">
+        <input type="radio" id="quality5" name="quality" value="5"><label for="quality5">★</label>
+        <input type="radio" id="quality4" name="quality" value="4"><label for="quality4">★</label>
+        <input type="radio" id="quality3" name="quality" value="3"><label for="quality3">★</label>
+        <input type="radio" id="quality2" name="quality" value="2"><label for="quality2">★</label>
+        <input type="radio" id="quality1" name="quality" value="1"><label for="quality1">★</label>
+      </div>
+
+      <p>Knowledge & Expertise:</p>
+      <div class="rating">
+        <input type="radio" id="knowledge5" name="knowledge" value="5"><label for="knowledge5">★</label>
+        <input type="radio" id="knowledge4" name="knowledge" value="4"><label for="knowledge4">★</label>
+        <input type="radio" id="knowledge3" name="knowledge" value="3"><label for="knowledge3">★</label>
+        <input type="radio" id="knowledge2" name="knowledge" value="2"><label for="knowledge2">★</label>
+        <input type="radio" id="knowledge1" name="knowledge" value="1"><label for="knowledge1">★</label>
+      </div>
+
+      <p>Communication Skills:</p>
+      <div class="rating">
+        <input type="radio" id="comm5" name="comm" value="5"><label for="comm5">★</label>
+        <input type="radio" id="comm4" name="comm" value="4"><label for="comm4">★</label>
+        <input type="radio" id="comm3" name="comm" value="3"><label for="comm3">★</label>
+        <input type="radio" id="comm2" name="comm" value="2"><label for="comm2">★</label>
+        <input type="radio" id="comm1" name="comm" value="1"><label for="comm1">★</label>
+      </div>
+
+      <p>Overall Satisfaction:</p>
+      <div class="rating">
+        <input type="radio" id="overall5" name="overall" value="5"><label for="overall5">★</label>
+        <input type="radio" id="overall4" name="overall" value="4"><label for="overall4">★</label>
+        <input type="radio" id="overall3" name="overall" value="3"><label for="overall3">★</label>
+        <input type="radio" id="overall2" name="overall" value="2"><label for="overall2">★</label>
+        <input type="radio" id="overall1" name="overall" value="1"><label for="overall1">★</label>
+      </div>
+
+      <p>Additional Comments (Optional):</p>
+      <textarea id="feedback" rows="4" placeholder="Your comments..."></textarea>
+
+      <button onclick="goToStep(2)">Back</button>
+      <button onclick="submitFeedback()">Submit Feedback</button>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- 🔹 Confirmation Page -->
+  <div class="container" id="confirmationPage" style="display:none;">
+    <div class="checkmark">✔</div>
+    <h2>Thank You!</h2>
+    <p>Your feedback has been saved successfully in our system.</p>
+    <button onclick="restartFeedback()">Submit Another Feedback</button>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <!-- 🔹 Teacher Dashboard -->
+  <div class="container" id="teacherDashboard" style="display:none;">
+    <h2>Teacher Dashboard</h2>
+    <p>Welcome, <span id="teacherNameDisplay"></span></p>
+
+    <h3>Your Feedback</h3>
+    <table border="1" width="100%" style="border-collapse: collapse; text-align:center;">
+      <thead>
+        <tr>
+          <th>Department</th>
+          <th>Quality</th>
+          <th>Knowledge</th>
+          <th>Communication</th>
+          <th>Overall</th>
+          <th>Comments</th>
+        </tr>
+      </thead>
+      <tbody id="teacherFeedbackTable"></tbody>
+    </table>
+
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    // ✅ Supabase Setup
+    const SUPABASE_URL = "https://sweptljmnxfkopjoupuz.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3ZXB0bGptbnhma29wam91cHV6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0ODYzNDIsImV4cCI6MjA3MzA2MjM0Mn0.YdNhakXs0-iGEgTJ6UfBuQyoK7f2bV3E0ywsfrCuZ9E"; // ⚠️ replace with anon key
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Teacher data grouped by department
+    const teacherData = {
+      "CSE": ["Prof.AnirbanBose","Prof.Arindam Ghosh","Prof.Sanjib Saha","Prof.Sumana Kundu"],
+      "ECE": ["Prof.Mrinmoy Chakraborty", "Prof.Tapas Mondal","Prof.Sourav Moitra"],
+      "ME": ["Prof.Arijit Banerjee", "Prof.Chandan Chattoraj"],
+      "CE": ["Prof.Sanjay Sengupta", "Prof.Sayantan Dutta"]
+    };
+
+    // 🔹 Signup Helpers
+    function toggleTeacherFields() {
+      const role = document.getElementById("signupRole").value;
+      document.getElementById("teacherDeptField").style.display = (role === "teacher") ? "block" : "none";
+      document.getElementById("teacherNameField").style.display = "none";
+    }
+
+    function loadSignupTeachers() {
+      const dept = document.getElementById("teacherDeptField").value;
+      const teacherDropdown = document.getElementById("teacherNameField");
+      teacherDropdown.innerHTML = "<option value=''>-- Select Your Name --</option>";
+
+      if (dept && teacherData[dept]) {
+        teacherData[dept].forEach(name => {
+          let option = document.createElement("option");
+          option.value = name;
+          option.textContent = name;
+          teacherDropdown.appendChild(option);
+        });
+        teacherDropdown.style.display = "block";
+      } else {
+        teacherDropdown.style.display = "none";
+      }
+    }
+
+    // 🔹 Signup
+    async function signup() {
+      const email = document.getElementById("signupEmail").value;
+      const password = document.getElementById("signupPassword").value;
+      const role = document.getElementById("signupRole").value;
+      const dept = document.getElementById("teacherDeptField").value;
+      const teacherName = document.getElementById("teacherNameField").value;
+
+      let metadata = { role };
+      if (role === "teacher") {
+        if (!dept || !teacherName) {
+          alert("⚠️ Please select your department and name.");
+          return;
+        }
+        metadata.teacherName = teacherName;
+        metadata.department = dept;
+      }
+
+      const { error } = await db.auth.signUp({
+        email,
+        password,
+        options: { data: metadata }
+      });
+
+      if (error) alert("Signup error: " + error.message);
+      else {
+        alert("✅ Signup successful! Please check your email for confirmation.");
+        showLogin();
+      }
+    }
+
+    // 🔹 Login
+    async function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
+      if (error) {
+        alert("Login error: " + error.message);
+      } else {
+        const user = data.user;
+        const role = user.user_metadata?.role;
+
+        document.getElementById("loginPage").style.display = "none";
+        document.getElementById("signupPage").style.display = "none";
+
+        if (role === "teacher") {
+          document.getElementById("teacherDashboard").style.display = "block";
+          document.getElementById("teacherNameDisplay").textContent = user.user_metadata?.teacherName || "Teacher";
+          loadTeacherFeedbacks();
+        } else {
+          document.getElementById("feedbackPage").style.display = "block";
+          goToStep(1);
+        }
+      }
+    }
+
+    async function logout() {
+      await db.auth.signOut();
+      document.getElementById("feedbackPage").style.display = "none";
+      document.getElementById("confirmationPage").style.display = "none";
+      document.getElementById("teacherDashboard").style.display = "none";
+      document.getElementById("loginPage").style.display = "block";
+    }
+
+    function showSignup() {
+      document.getElementById("loginPage").style.display = "none";
+      document.getElementById("signupPage").style.display = "block";
+    }
+
+    function showLogin() {
+      document.getElementById("signupPage").style.display = "none";
+      document.getElementById("loginPage").style.display = "block";
+    }
+
+    // 🔹 Feedback Form
+    function goToStep(step) {
+      document.getElementById("step1").style.display = "none";
+      document.getElementById("step2").style.display = "none";
+      document.getElementById("step3").style.display = "none";
+      document.getElementById("step" + step).style.display = "block";
+    }
+
+    function loadTeachers() {
+      let dept = document.getElementById("department").value;
+      let teacherSelect = document.getElementById("teacher");
+      teacherSelect.innerHTML = "<option value=''>-- Select Teacher --</option>";
+
+      if (dept in teacherData) {
+        teacherData[dept].forEach(t => {
+          let option = document.createElement("option");
+          option.value = t;
+          option.textContent = t;
+          teacherSelect.appendChild(option);
+        });
+      }
+    }
+
+    function getRating(name) {
+      let radios = document.getElementsByName(name);
+      for (let r of radios) if (r.checked) return r.value;
+      return null;
+    }
+
+    async function submitFeedback() {
+      let dept = document.getElementById("department").value;
+      let teacher = document.getElementById("teacher").value;
+      let quality = getRating("quality");
+      let knowledge = getRating("knowledge");
+      let comm = getRating("comm");
+      let overall = getRating("overall");
+      let comments = document.getElementById("feedback").value;
+
+      if (!dept || !teacher || !overall) {
+        alert("⚠️ Please complete all required fields!");
+        return;
+      }
+
+      const { error } = await db
+        .from("feedbacks")
+        .insert([{ department: dept, teacher, quality, knowledge, communication: comm, overall, comments }]);
+
+      if (error) alert("❌ Error saving feedback: " + error.message);
+      else {
+        document.getElementById("feedbackPage").style.display = "none";
+        document.getElementById("confirmationPage").style.display = "block";
+      }
+    }
+
+    function restartFeedback() {
+      document.getElementById("confirmationPage").style.display = "none";
+      document.getElementById("feedbackPage").style.display = "block";
+      goToStep(1);
+      document.getElementById("department").value = "";
+      document.getElementById("teacher").innerHTML = "<option value=''>-- Select Teacher --</option>";
+      document.getElementById("feedback").value = "";
+      document.querySelectorAll("input[type=radio]").forEach(r => r.checked = false);
+    }
+
+    // 🔹 Teacher Dashboard
+    async function loadTeacherFeedbacks() {
+      const { data: { user } } = await db.auth.getUser();
+      const teacherName = user.user_metadata?.teacherName;
+      if (!teacherName) return;
+
+      const { data, error } = await db
+        .from("feedbacks")
+        .select("*")
+        .eq("teacher", teacherName);
+
+      let tableBody = document.getElementById("teacherFeedbackTable");
+      tableBody.innerHTML = "";
+
+      if (error) {
+        tableBody.innerHTML = `<tr><td colspan="6">Error loading feedback</td></tr>`;
+        return;
+      }
+
+      if (data.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6">No feedback yet</td></tr>`;
+      } else {
+        data.forEach(fb => {
+          let row = `<tr>
+            <td>${fb.department}</td>
+            <td>${fb.quality || "-"}</td>
+            <td>${fb.knowledge || "-"}</td>
+            <td>${fb.communication || "-"}</td>
+            <td>${fb.overall || "-"}</td>
+            <td>${fb.comments || ""}</td>
+          </tr>`;
+          tableBody.innerHTML += row;
+        });
+      }
+    }
+  </script>
+</body>
+</html>
